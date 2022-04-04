@@ -32,15 +32,14 @@ def demo(args):
     model = torch.nn.DataParallel(RAFT(args))
     model.load_state_dict(torch.load("models/raft-things.pth"))
     ps_path = "F:\Batuhan\Yazılım\Freelance\Yeterly\KP_MLKit\main_data\\frame_outputs"
-    base_output_path = "flow_outputs/"
+    base_output_path = "flow_outputs"
     model = model.module
     model.to(DEVICE)
     model.eval()
 
     with torch.no_grad():
         for participant in os.listdir(ps_path):
-            # Create empyt numpy array for vstacking
-            np_array = []
+            # TODO: count not store in them in one array because ram is not enough to hold every item
             for video in os.listdir(ps_path + "/" + participant):
                 folder_path = ps_path + "/" + participant + "/" + video
                 output_path = base_output_path + "/" + participant + "/"
@@ -50,7 +49,9 @@ def demo(args):
                 )
 
                 images = sorted(images, key=natsort)
+                frame_count = 0
                 for imfile1, imfile2 in zip(images[:-1], images[1:]):
+                    frame_count += 1
                     image1 = load_image(imfile1)
                     image2 = load_image(imfile2)
 
@@ -60,19 +61,15 @@ def demo(args):
                     flow_low, flow_up = model(image1, image2, iters=20, test_mode=True)
                     # vstack np_array with flow_up
                     flow_up = torch.squeeze(flow_up).cpu().numpy()
-                    np_array.append(flow_up)
 
-                    print(imfile1, imfile2, "is done")
-                    # output_file = os.path.join("test", "frame.flo")
-                    # print(flow.shape)
-                    # writePFM("frame.pfm", flow)
-                empty_array = np.empty(len(np_array), object)
-                empty_array[:] = np_array
-                # if output path not exist
-                if not os.path.exists(output_path):
-                    os.makedirs(output_path)
-                # save flow_up to output path
-                np.save(output_path + video + "_flow.npy", empty_array)
+                    final_output_path = (
+                        output_path + video + "/frame_" + str(frame_count) + "_flow.npy"
+                    )
+
+                    if not os.path.exists(output_path + video + "/"):
+                        os.makedirs(output_path + video + "/")
+
+                    np.save(final_output_path, flow_up)
 
 
 parser = argparse.ArgumentParser()
